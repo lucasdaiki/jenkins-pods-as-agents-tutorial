@@ -6,28 +6,38 @@ import groovy.transform.Field
 pipeline {
     agent {
         kubernetes {
-            inheritFrom 'Node18Alpine'
-            yamlMergeStrategy merge()
+            inheritFrom 'Node16Alpine'
             defaultContainer 'rust'
+            yamlMergeStrategy merge()
             yaml '''
-              spec:
-                containers:
-                  - name: rust
-                    image: rustlang/rust:nightly-alpine
-                    command: ["sleep", "infinity"]
-                    resources:
-                      requests:
-                        cpu: 100m
-                        memory: 256Mi
-                      limits:
-                        cpu: 2
-                        memory: 256Mi
+                spec:
+                    containers:
+                        - name: rust
+                          image: rustlang/rust:nightly-alpine
+                          command: ["sleep", "infinity"]
+                          resources:
+                            requests:
+                              cpu: 100m
+                              memory: 256Mi
+                            limits:
+                              cpu: 2
+                              memory: 256Mi
+                        - name: kaniko
+                          image: gcr.io/kaniko-project/executor:v1.9.1-debug
+                          command: ["sleep", "infinity"]
+                          resources:
+                            requests:
+                              cpu: 100m
+                              memory: 512Mi
+                            limits:
+                              cpu: 2
+                              memory: 2Gi
             '''
         }
     }
 
     environment {
-        CARGO_UNSTABLE_SPARSE_REGISTRY = 'true'
+        GARGO_UNSTABLE_SPARSE_REGISTRY = 'true'
     }
 
     options {
@@ -39,22 +49,22 @@ pipeline {
     stages {
         stage('Generate Report') {
             steps {
-                dir(PROJECT_DIR) {
-                    container('node18') {
+                container('node16') {
+                    dir(PROJECT_DIR) {
                         sh './report_generator.js'
                     }
                 }
             }
         }
 
-        stage('Install dependencies') {
-            steps {
-                dir(PROJECT_DIR) {
-                    // if we are on alpine, we need to install musl-dev
-                    sh 'apk add --no-cache musl-dev=1.2.2-r7'
-                }
-            }
-        }
+       stage('Install dependencies') {
+           steps {
+               dir(PROJECT_DIR) {
+                   // if we are on alpine, we need to install musl-dev
+                   sh 'apk add --no-cache musl-dev=1.2.2-r7'
+               }
+           }
+       }
 
         stage('Build') {
             steps {
@@ -64,18 +74,21 @@ pipeline {
             }
         }
 
-        // Oh no, we can't perform regular Docker Builds on Kubernetes
-        /*
         stage('Build Image') {
-            environment {
-                DOCKER_BUILDKIT = "1"
-            }
             steps {
                 dir(PROJECT_DIR) {
-                    sh 'docker build -t super-report-printer:v0.1.0 .'
+                    container('kaniko') {
+                        sh '''
+                            /kaniko/executor --context . \\
+                            --dockerfile Dockerfile \\
+                            --destination rusty-report-printer:v0.1.0 \\
+                            --no-push \\
+                            --use-new-run \\
+                            --snapshotMode=redo 
+                        '''
+                    }
                 }
             }
         }
-         */
     }
 }

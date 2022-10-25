@@ -7,16 +7,33 @@ pipeline {
     // We should really use some specific agent, we are getting crashes on some agents without Node or Docker!
     agent {
         kubernetes {
-            defaultContainer 'node'
+            inheritFrom 'Node16Alpine'
+            defaultContainer 'node16'
+            yamlMergeStrategy merge()
             yaml '''
                 spec:
                     containers:
-                        - name: node
-                          image: node:16.15-alpine3.16
-                          command: ["sleep", "infinity"]
                         - name: python
                           image: python:3.10-alpine3.16
                           command: ["sleep", "infinity"]
+                          resources:
+                            requests:
+                              cpu: 10m
+                              memory: 16Mi
+                            limits:
+                              cpu: 1
+                              memory: 16Mi
+                        - name: kaniko
+                          image: gcr.io/kaniko-project/executor:v1.9.1-debug
+                          command: ["sleep", "infinity"]
+                          resources:
+                            requests:
+                              cpu: 100m
+                              memory: 512Mi
+                            limits:
+                              cpu: 2
+                              memory: 1Gi
+
             '''
         }
     }
@@ -55,14 +72,18 @@ pipeline {
         }
 
         stage('Build Image') {
-            environment {
-                DOCKER_BUILDKIT = "1"
-            }
             steps {
                 dir(PROJECT_DIR) {
-                    // Some of our agents don't have Docker, what do we do?
-                    // Also, we are always tagging with the same tag! Help!
-                    sh 'docker build -t super-report-printer:v0.1.0 .'
+                    container('kaniko') {
+                        sh '''
+                            /kaniko/executor --context . \\
+                            --dockerfile Dockerfile \\
+                            --destination super-report-printer:v0.1.0 \\
+                            --no-push \\
+                            --use-new-run \\
+                            --snapshotMode=redo 
+                        '''
+                    }
                 }
             }
         }
