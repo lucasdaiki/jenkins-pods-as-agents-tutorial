@@ -6,36 +6,28 @@ import groovy.transform.Field
 pipeline {
     agent {
         kubernetes {
+            inheritFrom 'Node18Alpine'
+            yamlMergeStrategy merge()
             defaultContainer 'rust'
             yaml '''
-                spec:
-                    containers:
-                        - name: node
-                          image: node:16.15-alpine3.16
-                          command: ["sleep", "infinity"]
-                          resources:
-                            requests:
-                                cpu: 100m
-                                memory: 256Mi
-                            limits:
-                                cpu: 2
-                                memory: 256Mi
-                        - name: rust
-                          image: rustlang/rust:nightly-alpine
-                          command: ["sleep", "infinity"]
-                          resources:
-                            requests:
-                                cpu: 10m
-                                memory: 12Mi
-                            limits:
-                                cpu: 1
-                                memory: 12Mi
+              spec:
+                containers:
+                  - name: rust
+                    image: rustlang/rust:nightly-alpine
+                    command: ["sleep", "infinity"]
+                    resources:
+                      requests:
+                        cpu: 100m
+                        memory: 256Mi
+                      limits:
+                        cpu: 2
+                        memory: 256Mi
             '''
         }
     }
 
     environment {
-        GARGO_UNSTABLE_SPARSE_REGISTRY = 'true'
+        CARGO_UNSTABLE_SPARSE_REGISTRY = 'true'
     }
 
     options {
@@ -47,8 +39,8 @@ pipeline {
     stages {
         stage('Generate Report') {
             steps {
-                container('node') {
-                    dir(PROJECT_DIR) {
+                dir(PROJECT_DIR) {
+                    container('node18') {
                         sh './report_generator.js'
                     }
                 }
