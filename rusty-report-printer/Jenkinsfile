@@ -15,19 +15,21 @@ pipeline {
                           command: ["sleep", "infinity"]
                           resources:
                             requests:
-                              cpu: 100m
-                              memory: 256Mi
-                            limits: 2
-                            memory: 256Mi
+                                cpu: 100m
+                                memory: 256Mi
+                            limits:
+                                cpu: 2
+                                memory: 256Mi
                         - name: rust
                           image: rustlang/rust:nightly-alpine
                           command: ["sleep", "infinity"]
                           resources:
                             requests:
-                              cpu: 10m
-                              memory: 12Mi
-                            limits: 1
-                            memory: 12Mi
+                                cpu: 10m
+                                memory: 12Mi
+                            limits:
+                                cpu: 1
+                                memory: 12Mi
             '''
         }
     }
@@ -53,14 +55,14 @@ pipeline {
             }
         }
 
-       stage('Install dependencies') {
-           steps {
-               dir(PROJECT_DIR) {
-                   // if we are on alpine, we need to install musl-dev
-                   sh 'apk add --no-cache musl-dev=1.2.2-r7'
-               }
-           }
-       }
+        stage('Install dependencies') {
+            steps {
+                dir(PROJECT_DIR) {
+                    // if we are on alpine, we need to install musl-dev
+                    sh 'apk add --no-cache musl-dev=1.2.2-r7'
+                }
+            }
+        }
 
         stage('Build') {
             steps {
